@@ -30,7 +30,7 @@ Performance Evaluation: Implementation of standardized performance metrics to as
 
 To set up the project, clone this repository and install the required dependencies:
 ```
-git clone https://github.com/yourusername/Trading-Deep-Q-Network.git
+git clone https://github.com/pafruchtenreich/Trading-Deep-Q-Network.git
 cd Trading-Deep-Q-Network
 pip install -r requirements.txt
 ```
