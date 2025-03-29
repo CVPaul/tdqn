@@ -1,12 +1,12 @@
 import gymnasium as gym
 import numpy as np
+import pandas as pd
 from collections import deque
-import random
 
 class TradingEnv(gym.Env):
-    def __init__(self, prices):
+    def __init__(self, data):
         super(TradingEnv, self).__init__()
-        self.prices = prices
+        self.prices = data['close'].values  # Extract Close prices as numpy array
         self.current_step = 0
         self.cash = 10000  # Initial cash
         self.shares = 0  # Initial shares

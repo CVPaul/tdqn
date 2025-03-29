@@ -69,13 +69,12 @@ class TDQN:
     def train_step(self, batch_size):
         if len(self.memory) < batch_size:
             return
-        
         batch = self.memory.sample(batch_size)
         states, actions, rewards, next_states = zip(*batch)
-        states = torch.tensor(states, dtype=torch.float32)
+        states = torch.tensor(np.stack(states), dtype=torch.float32)
         actions = torch.tensor(actions, dtype=torch.int64).unsqueeze(1)
         rewards = torch.tensor(rewards, dtype=torch.float32)
-        next_states = torch.tensor(next_states, dtype=torch.float32)
+        next_states = torch.tensor(np.stack(next_states), dtype=torch.float32)
         
         q_values = self.policy_net(states).gather(1, actions).squeeze()
         next_q_values = self.target_net(next_states).max(1)[0].detach()
@@ -96,6 +95,7 @@ class TDQN:
     
     def train(self, env, num_episodes, max_steps, batch_size):
         for episode in range(num_episodes):
+            total_reward = 0
             state = env.reset()
             for t in range(max_steps):
                 action = self.select_action(state)
@@ -103,10 +103,12 @@ class TDQN:
                 self.memory.push((state, action, reward, next_state))
                 self.train_step(batch_size)
                 state = next_state
+                total_reward += reward
                 if done:
                     break
-                
                 if t % self.target_update_freq == 0:
                     self.update_target_network()
-            
+                if t % batch_size == 0:
+                    print(f'{t}/{max_steps}')
             self.anneal_epsilon()
+            print(f"Episode {episode + 1}: Total Reward = {total_reward}")

@@ -1,20 +1,14 @@
-from trading_env import TradingEnv
-from single_stock_data_loading import load_data
-from tqdn import TDQN
+import sqlite3
 import numpy as np
+import pandas as pd
 
-prices = load_data(stock_index="AAPL")
-env = TradingEnv(prices)
-tdqn = TDQN(state_dim=env.state_size, action_dim=env.action_space.n)
+from tqdn import TDQN
+from trading_env import TradingEnv
 
-for episode in range(10):
-    state = env.reset()
-    total_reward = 0
-    for _ in range(len(prices) - 1):
-        action = np.argmax(tdqn.predict(state.reshape(1, -1)))
-        next_state, reward, done, _ = env.step(action)
-        total_reward += reward
-        state = next_state
-        if done:
-            break
-    print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+
+symbol = "DOGEUSD_PERP"
+con = sqlite3.connect(f"/home/ubuntu/bcp/data/{symbol}.db")
+dat = pd.read_sql("SELECT close FROM klines", con)
+env = TradingEnv(dat)
+dqn = TDQN(state_dim=env.state_size, action_dim=env.action_space.n)
+dqn.train(env, 10, dat.shape[0] - 1, 8 * 60)
