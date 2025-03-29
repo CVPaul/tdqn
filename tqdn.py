@@ -1,8 +1,10 @@
 import random
-import numpy as np
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+
+from tqdm import tqdm
 from collections import deque
 
 # Define the Deep Q-Network (DQN) model
@@ -45,10 +47,11 @@ class TDQN:
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.memory = ReplayMemory(capacity)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
         # Initialize networks
-        self.policy_net = DQN(state_dim, action_dim)
-        self.target_net = DQN(state_dim, action_dim)
+        self.policy_net = DQN(state_dim, action_dim).to(self.device)
+        self.target_net = DQN(state_dim, action_dim).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         
@@ -64,17 +67,17 @@ class TDQN:
             return random.randint(0, self.action_dim - 1)
         else:
             with torch.no_grad():
-                return torch.argmax(self.policy_net(torch.tensor(state, dtype=torch.float32))).item()
+                return torch.argmax(self.policy_net(torch.tensor(state, dtype=torch.float32).to(self.device))).item()
     
     def train_step(self, batch_size):
         if len(self.memory) < batch_size:
             return
         batch = self.memory.sample(batch_size)
         states, actions, rewards, next_states = zip(*batch)
-        states = torch.tensor(np.stack(states), dtype=torch.float32)
-        actions = torch.tensor(actions, dtype=torch.int64).unsqueeze(1)
-        rewards = torch.tensor(rewards, dtype=torch.float32)
-        next_states = torch.tensor(np.stack(next_states), dtype=torch.float32)
+        states = torch.tensor(np.stack(states), dtype=torch.float32).to(self.device)
+        actions = torch.tensor(actions, dtype=torch.int64).unsqueeze(1).to(self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        next_states = torch.tensor(np.stack(next_states), dtype=torch.float32).to(self.device)
         
         q_values = self.policy_net(states).gather(1, actions).squeeze()
         next_q_values = self.target_net(next_states).max(1)[0].detach()
@@ -94,10 +97,10 @@ class TDQN:
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
     
     def train(self, env, num_episodes, max_steps, batch_size):
-        for episode in range(num_episodes):
+        for episode in tqdm(range(num_episodes), desc='epoch'):
             total_reward = 0
             state = env.reset()
-            for t in range(max_steps):
+            for t in tqdm(range(max_steps), desc='step'):
                 action = self.select_action(state)
                 next_state, reward, done, _ = env.step(action)
                 self.memory.push((state, action, reward, next_state))
@@ -108,7 +111,5 @@ class TDQN:
                     break
                 if t % self.target_update_freq == 0:
                     self.update_target_network()
-                if t % batch_size == 0:
-                    print(f'{t}/{max_steps}')
             self.anneal_epsilon()
             print(f"Episode {episode + 1}: Total Reward = {total_reward}")
